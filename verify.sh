@@ -25,6 +25,10 @@ config_version=5
 
 config/name="GMornLocalize Verify"
 config/features=PackedStringArray("4.7")
+
+[internationalization]
+
+locale/fallback="ja"
 PROJECT
 
 # class_name は一度走査しないと引けないので、先に取り込みを回す。
