@@ -27,4 +27,6 @@ config/name="GMornLocalize Verify"
 config/features=PackedStringArray("4.7")
 PROJECT
 
+# class_name は一度走査しないと引けないので、先に取り込みを回す。
+"$godot_bin" --headless --path "$work_dir" --import >/dev/null 2>&1 || true
 "$godot_bin" --headless --path "$work_dir" --script verify.gd

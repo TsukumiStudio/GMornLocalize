@@ -26,7 +26,9 @@ Godot の CSV 取り込みは使わない。取り込みの生成物 `.translati
 git submodule add https://github.com/TsukumiStudio/GMornLocalize.git addons/gmorn_localize
 ```
 
-「プロジェクト設定 → プラグイン」で `GMornLocalize` を有効にする。自動読み込みへ `GMornLocalize` が登録される。
+「プロジェクト設定 → プラグイン」で `GMornLocalize` を有効にする。自動読み込みへ `GMornLocalizeTable`（表を登録する役）が登録される。
+
+呼ぶときの `GMornLocalize` は `class_name`。const の表や static 関数、`--script` で先に読まれる台本からも引けるようにするため。`class_name` はエディタか `--import` が一度走査すると解決できるので、CI では起動の前に `--import` を回す。
 
 **リポジトリ直下に `project.godot` は置かない。** 置くとGodotがそこを別のプロジェクトと見なし、取り込んだ側の書き出しからフォルダごと外れる。
 

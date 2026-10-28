@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-const AUTOLOAD_NAME := "GMornLocalize"
+const AUTOLOAD_NAME := "GMornLocalizeTable"
 const SETTINGS := preload("gmorn_localize.gd")
 
 ## 置き場所を決め打ちにしない。submodule で任意の場所へ入れられるよう自分の居場所から辿る。

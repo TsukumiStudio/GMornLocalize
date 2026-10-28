@@ -1,4 +1,5 @@
 @tool
+class_name GMornLocalize
 extends Node
 
 ## 画面に出す文言の取得口。文言は1枚のCSV（`keys,ja,en,…`）にIDのキーで集め、起動時に読んで
@@ -7,6 +8,9 @@ extends Node
 ## `@tool` なのは Editor の Preview Translation にも同じ表を効かせるため。
 ## 呼ぶ側は `GMornLocalize.get_text("KEY", [値…])` だけを使う。`tr()` と `TranslationServer.translate()` を
 ## 混ぜると、Node と static 関数で呼び方が割れる。
+## GMorn の他の部品と違い `class_name` を持つ。文言は const の表や static 関数や `--script` で先に読まれる台本からも
+## 引くが、自動読み込みの名前はそこではまだ解決できない。自動読み込みは別名 `GMornLocalizeTable` で同じ台本を指し、
+## 表の登録だけを受け持つ（名前が同じだと class_name と自動読み込みがぶつかる）。
 
 const TABLE_PATH_SETTING := "gmorn_localize/table_path"
 const DEFAULT_TABLE_PATH := "res://localization.csv"
@@ -27,7 +31,7 @@ func _notification(what: int) -> void:
 
 ## 表には埋める所を `{1}` `{2}` と番号で書き、`args` に順に渡す。番号なので、訳で語順が変わっても引数は並べ替えない。
 ## 小数は桁を決めた String にして渡す（`"%.2f" % x`）。float をそのまま渡すと桁が値で揺れるので受けない。
-func get_text(key: String, args: Array = []) -> String:
+static func get_text(key: String, args: Array = []) -> String:
 	var text := String(TranslationServer.translate(key))
 	for index in args.size():
 		var value: Variant = args[index]

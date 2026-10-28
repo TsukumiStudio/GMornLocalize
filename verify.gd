@@ -15,6 +15,8 @@ func _run() -> void:
 	TranslationServer.set_locale("ja")
 
 	var service: Node = load("res://gmorn_localize.gd").new()
+	# 呼ぶ側は class_name 越しに static で引く。インスタンスを持たない所からも同じ結果になる。
+	assert(GMornLocalize.get_text("GREETING") == "こんにちは", "static で引けない")
 	assert(service.translations.size() == 2, "言語の列ごとに作られない: %d" % service.translations.size())
 	assert(service.get_text("GREETING") == "こんにちは", "引けない: %s" % service.get_text("GREETING"))
 	assert(service.get_text("PRICE", ["30", 36]) == "30円 → 36円", "番号で埋まらない: %s" % service.get_text("PRICE", ["30", 36]))
