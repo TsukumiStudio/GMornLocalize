@@ -1,0 +1,66 @@
+# GMornLocalize
+
+## 概要
+
+画面に出す文言を1枚のCSVに集め、起動時に読んで翻訳として登録するGodotアドオン。呼ぶ側は `GMornLocalize.get_text("KEY", [値…])` だけを使う。
+
+Godot の CSV 取り込みは使わない。取り込みの生成物 `.translation` は git に入り、マージで表と食い違ったまま残ると、表は正しいのに画面だけ古い文言が出る。
+
+## 動作環境
+
+- Godot 4.x（4.7で確認）
+
+## 何ができるか
+
+- **表は1枚**。`keys,ja,en,…` の列を足せば、その言語の翻訳も作られる。
+- **生成物が無い**。CSV を直せば、取り込み直さなくても次の起動から反映される。
+- **番号で埋める**。表に `{1}` `{2}` と書き、引数を順に渡す。訳で語順が変わっても呼ぶ側は変えない。
+- **シーンはそのまま**。Label の `text` にキーを書けば、Control の自動翻訳で表示される。
+- **Editor でも効く**。自動読み込みが `@tool` なので、Preview Translation に同じ表が出る。
+
+## 使い方
+
+### 1. 取り込む
+
+```
+git submodule add https://github.com/TsukumiStudio/GMornLocalize.git addons/gmorn_localize
+```
+
+「プロジェクト設定 → プラグイン」で `GMornLocalize` を有効にする。自動読み込みへ `GMornLocalize` が登録される。
+
+**リポジトリ直下に `project.godot` は置かない。** 置くとGodotがそこを別のプロジェクトと見なし、取り込んだ側の書き出しからフォルダごと外れる。
+
+### 2. 表を置く
+
+```
+keys,ja,en
+TITLE_START,はじめる,Start
+HUD_LIVES,残り{1}機,{1} lives left
+RESULT_TIME,{1}分{2}秒,{1}m {2}s
+```
+
+- 置き場所はプロジェクト設定 `gmorn_localize/table_path`（既定 `res://localization.csv`）。
+- 表の取り込み設定を **Keep File** にする（`.import` の `importer="keep"`）。翻訳として取り込まれると `FileAccess` で読めない。
+- 書き出し設定の「リソース以外のファイル」（`include_filter`）に表を足す。足さないと配布物に入らない。
+- `internationalization/locale/fallback` を元の言語にしておくと、訳の無い言語でもキーではなく元の文言が出る。
+
+### 3. 引く
+
+```gdscript
+label.text = GMornLocalize.get_text("TITLE_START")
+label.text = GMornLocalize.get_text("HUD_LIVES", [lives])
+label.text = GMornLocalize.get_text("RESULT_TIME", [minutes, "%02d" % seconds])
+```
+
+- 整数と文字列はそのまま渡す。小数は `"%.2f" % x` のように桁を決めた String にする（float をそのまま渡すとエラー）。
+- シーンでは Label の `text` にキー（`TITLE_START`）を書く。
+
+### 4. 確かめる
+
+```
+./verify.sh
+```
+
+## ライセンス
+
+[UNLICENSE](UNLICENSE)
