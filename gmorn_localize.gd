@@ -30,15 +30,49 @@ func _notification(what: int) -> void:
 			TranslationServer.remove_translation(translation)
 
 ## 表には埋める所を `{1}` `{2}` と番号で書き、`args` に順に渡す。番号なので、訳で語順が変わっても引数は並べ替えない。
-## 小数は桁を決めた String にして渡す（`"%.2f" % x`）。float をそのまま渡すと桁が値で揺れるので受けない。
+## 見せ方は表の側に書く。呼ぶ側は生の値を渡す（見せ方は言語ごとに変わりうるので、呼ぶ側に漏らさない）。
+## - `{1:money}` 整数を3桁区切りにする（777584 → 777,584）
+## - `{1:.2}` 数を小数2桁にする（1.25）。`{1:.0}` は整数に丸める
+## 書式の無い `{1}` に float は渡さない。桁が値で揺れるので、表に `.N` を書く。
 static func get_text(key: String, args: Array = []) -> String:
 	var text := String(TranslationServer.translate(key))
-	for index in args.size():
-		var value: Variant = args[index]
-		if value is float:
-			push_error("%s の {%d} に float が来た。桁を決めた String にして渡す: %s" % [key, index + 1, value])
-		text = text.replace("{%d}" % (index + 1), str(value))
+	if args.is_empty():
+		return text
+	var matches := RegEx.create_from_string("\\{(\\d+)(?::([^}]+))?\\}").search_all(text)
+	# 後ろから置き換えると、前の位置がずれない。
+	matches.reverse()
+	for found: RegExMatch in matches:
+		var index := int(found.get_string(1)) - 1
+		if index < 0 or index >= args.size():
+			continue
+		text = text.substr(0, found.get_start()) + _format(key, found.get_string(0), args[index], found.get_string(2)) + text.substr(found.get_end())
 	return text
+
+static func _format(key: String, place: String, value: Variant, spec: String) -> String:
+	if spec == "money":
+		if not value is int:
+			push_error("%s の %s に整数でない値が来た: %s" % [key, place, value])
+			return str(value)
+		return _group_digits(value)
+	if spec.begins_with(".") and spec.substr(1).is_valid_int():
+		if not (value is int or value is float):
+			push_error("%s の %s に数でない値が来た: %s" % [key, place, value])
+			return str(value)
+		return ("%." + spec.substr(1) + "f") % float(value)
+	if spec != "":
+		push_error("%s の %s の書式が分からない" % [key, place])
+	elif value is float:
+		push_error("%s の %s に float が来た。表に {n:.2} のように桁を書く: %s" % [key, place, value])
+	return str(value)
+
+static func _group_digits(amount: int) -> String:
+	var digits := str(absi(amount))
+	var grouped := ""
+	while digits.length() > 3:
+		grouped = "," + digits.right(3) + grouped
+		digits = digits.left(digits.length() - 3)
+	grouped = digits + grouped
+	return "-" + grouped if amount < 0 else grouped
 
 static func table_path() -> String:
 	return String(ProjectSettings.get_setting(TABLE_PATH_SETTING, DEFAULT_TABLE_PATH))

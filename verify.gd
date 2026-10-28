@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var file := FileAccess.open(TABLE, FileAccess.WRITE)
-	file.store_string('keys,ja,en\nGREETING,こんにちは,Hello\nPRICE,{1}円 → {2}円,{2} yen (was {1})\nMULTILINE,"1行目\\n2行目",\nJA_ONLY,日本語だけ,\n残り{1}機,,{1} lives left\n')
+	file.store_string('keys,ja,en\nGREETING,こんにちは,Hello\nPRICE,{1}円 → {2}円,{2} yen (was {1})\nMULTILINE,"1行目\\n2行目",\nJA_ONLY,日本語だけ,\n残り{1}機,,{1} lives left\nWALLET,所持金 {1:money}円,\nRATE,倍率 ×{1:.2},\n')
 	file.close()
 	ProjectSettings.set_setting("gmorn_localize/table_path", TABLE)
 	TranslationServer.set_locale("ja")
@@ -23,6 +23,13 @@ func _run() -> void:
 	assert(service.get_text("MULTILINE") == "1行目\n2行目", "\\n が改行にならない")
 	# 表に無い直書きはそのまま出て、番号だけ埋まる。
 	assert(service.get_text("残り{1}機", [3]) == "残り3機", "直書きがそのまま出ない: %s" % service.get_text("残り{1}機", [3]))
+
+	# 見せ方は表に書き、呼ぶ側は生の値を渡す。
+	assert(service.get_text("WALLET", [777584]) == "所持金 777,584円", "桁区切りにならない: %s" % service.get_text("WALLET", [777584]))
+	assert(service.get_text("WALLET", [-1000]) == "所持金 -1,000円", "負の数の桁区切りが崩れる")
+	assert(service.get_text("WALLET", [12]) == "所持金 12円", "3桁以下が崩れる")
+	assert(service.get_text("RATE", [1.25]) == "倍率 ×1.25", "小数の桁が決まらない: %s" % service.get_text("RATE", [1.25]))
+	assert(service.get_text("RATE", [2]) == "倍率 ×2.00", "整数を小数の書式で出せない")
 
 	# 語順の違う訳でも、呼ぶ側の引数の順はそのまま。
 	TranslationServer.set_locale("en")

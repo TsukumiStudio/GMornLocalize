@@ -15,6 +15,7 @@ Godot の CSV 取り込みは使わない。取り込みの生成物 `.translati
 - **表は1枚**。`keys,ja,en,…` の列を足せば、その言語の翻訳も作られる。
 - **生成物が無い**。CSV を直せば、取り込み直さなくても次の起動から反映される。
 - **番号で埋める**。表に `{1}` `{2}` と書き、引数を順に渡す。訳で語順が変わっても呼ぶ側は変えない。
+- **見せ方は表に書く**。`{1:money}` で3桁区切り、`{1:.2}` で小数2桁。呼ぶ側は生の値を渡す。
 - **キーでも直書きでも書ける**。表に無い文字列はそのまま出て、番号だけ埋まる。直書きした文言は、表にその文言そのものをキーにした行（`こんにちは,,Hello`）を足せば後から訳せる。
 - **シーンはそのまま**。Label の `text` にキー（または文言）を書けば、Control の自動翻訳で表示される。
 - **Editor でも効く**。自動読み込みが `@tool` なので、Preview Translation に同じ表が出る。
@@ -39,6 +40,8 @@ git submodule add https://github.com/TsukumiStudio/GMornLocalize.git addons/gmor
 keys,ja,en
 TITLE_START,はじめる,Start
 HUD_LIVES,残り{1}機,{1} lives left
+SHOP_PRICE,{1:money}円,¥{1:money}
+HUD_RATE,倍率 ×{1:.2},Rate ×{1:.2}
 RESULT_TIME,{1}分{2}秒,{1}m {2}s
 ```
 
@@ -55,7 +58,8 @@ label.text = GMornLocalize.get_text("HUD_LIVES", [lives])
 label.text = GMornLocalize.get_text("RESULT_TIME", [minutes, "%02d" % seconds])
 ```
 
-- 整数と文字列はそのまま渡す。小数は `"%.2f" % x` のように桁を決めた String にする（float をそのまま渡すとエラー）。
+- 値は生のまま渡す。`get_text("SHOP_PRICE", [1500])` → `1,500円`、`get_text("HUD_RATE", [1.25])` → `倍率 ×1.25`。
+- 書式は `money`（整数を3桁区切り）と `.N`（小数N桁）。書式の無い `{1}` に float を渡すとエラー（桁が値で揺れるため）。
 - 表に無い文字列はそのまま出る。`GMornLocalize.get_text("残り{1}機", [lives])` のように直書きしてもよい。
 - 直書きした文言を訳すときは、表にその文言をキーにした行を足す。元の言語の列は空でよい。空の欄は `internationalization/locale/fallback` の言語を引き、そこも空ならキーそのものが出るので、fallback を元の言語にしておく。
 
