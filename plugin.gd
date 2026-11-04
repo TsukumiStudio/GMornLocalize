@@ -28,3 +28,12 @@ func _register_settings() -> void:
 		"name": key, "type": TYPE_STRING, "hint": PROPERTY_HINT_FILE, "hint_string": "*.csv",
 	})
 	ProjectSettings.set_as_basic(key, true)
+
+	key = SETTINGS.TABLE_DIR_SETTING
+	if not ProjectSettings.has_setting(key):
+		ProjectSettings.set_setting(key, "")
+	ProjectSettings.set_initial_value(key, "")
+	ProjectSettings.add_property_info({
+		"name": key, "type": TYPE_STRING, "hint": PROPERTY_HINT_DIR,
+	})
+	ProjectSettings.set_as_basic(key, true)

@@ -33,4 +33,29 @@ PROJECT
 
 # class_name は一度走査しないと引けないので、先に取り込みを回す。
 "$godot_bin" --headless --path "$work_dir" --import >/dev/null 2>&1 || true
+cat > "$work_dir/verify_settings.gd" <<'SCRIPT'
+extends SceneTree
+
+func _initialize() -> void:
+	call_deferred("_verify")
+
+func _verify() -> void:
+	var plugin: EditorPlugin = load("res://addons/gmorn_localize/plugin.gd").new()
+	plugin._register_settings()
+	var valid: bool = ProjectSettings.get_setting("gmorn_localize/table_dir") == ""
+	var found := false
+	for property in ProjectSettings.get_property_list():
+		if property.name == "gmorn_localize/table_dir":
+			found = true
+			valid = valid and property.type == TYPE_STRING and property.hint == PROPERTY_HINT_DIR
+			valid = valid and bool(property.usage & PROPERTY_USAGE_EDITOR_BASIC_SETTING)
+	plugin.free()
+	if not valid or not found:
+		push_error("表のディレクトリ設定が正しく登録されない")
+		quit(1)
+		return
+	print("GMORN LOCALIZE SETTINGS VERIFY: PASS")
+	quit(0)
+SCRIPT
+"$godot_bin" --headless --editor --path "$work_dir" --script verify_settings.gd
 "$godot_bin" --headless --path "$work_dir" --script verify.gd
