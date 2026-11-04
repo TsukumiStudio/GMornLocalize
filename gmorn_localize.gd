@@ -2,7 +2,7 @@
 class_name GMornLocalize
 extends Node
 
-## 画面に出す文言の取得口。文言は1枚のCSV（`keys,ja,en,…`）にIDのキーで集め、起動時に読んで
+## 画面に出す文言の取得口。文言はCSV（`keys,ja,en,…`）にIDのキーで集め、起動時に読んで
 ## 列ごとの言語の翻訳として `TranslationServer` へ登録する。
 ## Godot の CSV 取り込みは使わない。生成物の `.translation` が git に入り、マージで表と食い違ったまま残るため。
 ## `@tool` なのは Editor の Preview Translation にも同じ表を効かせるため。
@@ -12,6 +12,7 @@ extends Node
 ## 引くが、自動読み込みの名前はそこではまだ解決できない。自動読み込みは別名 `GMornLocalizeTable` で同じ台本を指し、
 ## 表の登録だけを受け持つ（名前が同じだと class_name と自動読み込みがぶつかる）。
 
+const TABLE_DIR_SETTING := "gmorn_localize/table_dir"
 const TABLE_PATH_SETTING := "gmorn_localize/table_path"
 const DEFAULT_TABLE_PATH := "res://localization.csv"
 
@@ -19,7 +20,9 @@ var translations: Array[Translation] = []
 
 ## 最初の画面より先に登録が済むよう `_ready()` でなく `_init()` で読む。
 func _init() -> void:
-	for translation: Translation in read_table(table_path()):
+	var directory := String(ProjectSettings.get_setting(TABLE_DIR_SETTING, ""))
+	var tables := read_directory(directory) if directory != "" else read_table(table_path())
+	for translation: Translation in tables:
 		TranslationServer.add_translation(translation)
 		translations.append(translation)
 
@@ -77,23 +80,60 @@ static func _group_digits(amount: int) -> String:
 static func table_path() -> String:
 	return String(ProjectSettings.get_setting(TABLE_PATH_SETTING, DEFAULT_TABLE_PATH))
 
-## 1列目がキー、2列目以降が見出しの言語。`\n` などは Godot の取り込みと同じく文言の側だけ解く。
+## 1列目がキー、2列目以降が見出しの言語。`\n` などは文言の側だけ解く。
 static func read_table(path: String) -> Array[Translation]:
+	return _read_tables(PackedStringArray([path]))
+
+static func read_directory(path: String) -> Array[Translation]:
+	var directory := DirAccess.open(path)
+	if directory == null:
+		push_error("文言の表のディレクトリが読めない: %s" % path)
+		return []
+	var paths := PackedStringArray()
+	for file_name in directory.get_files():
+		if file_name.ends_with(".csv"):
+			paths.append(path.path_join(file_name))
+	paths.sort()
+	if paths.is_empty():
+		push_error("文言の表がない: %s" % path)
+		return []
+	return _read_tables(paths)
+
+static func _read_tables(paths: PackedStringArray) -> Array[Translation]:
 	var result: Array[Translation] = []
-	var csv := FileAccess.open(path, FileAccess.READ)
-	if csv == null:
-		push_error("文言の表が読めない: %s" % path)
-		return result
-	var header := csv.get_csv_line()
-	for column in range(1, header.size()):
-		var translation := Translation.new()
-		translation.locale = header[column]
-		result.append(translation)
-	while not csv.eof_reached():
-		var row := csv.get_csv_line()
-		if row.is_empty() or row[0] == "":
-			continue
-		for column in range(1, mini(row.size(), header.size())):
-			if row[column] != "":
-				result[column - 1].add_message(row[0], row[column].c_unescape())
+	var keys := {}
+	for path in paths:
+		var csv := FileAccess.open(path, FileAccess.READ)
+		if csv == null:
+			push_error("文言の表が読めない: %s" % path)
+			return []
+		var header := csv.get_csv_line()
+		if header.size() < 2 or header[0] != "keys":
+			push_error("文言の表の見出しが不正: %s" % path)
+			return []
+		var locales := {}
+		var translations: Array[Translation] = []
+		for column in range(1, header.size()):
+			if header[column].is_empty() or locales.has(header[column]):
+				push_error("文言の表の言語が不正: %s" % path)
+				return []
+			locales[header[column]] = true
+			var translation := Translation.new()
+			translation.locale = header[column]
+			translations.append(translation)
+		while not csv.eof_reached():
+			var row := csv.get_csv_line()
+			if row.size() == 1 and row[0].is_empty():
+				continue
+			if row.size() != header.size() or row[0].is_empty():
+				push_error("文言の表の行が不正: %s" % path)
+				return []
+			if keys.has(row[0]):
+				push_error("文言のキーが重複: %s (%s)" % [row[0], path])
+				return []
+			keys[row[0]] = true
+			for column in range(1, header.size()):
+				if row[column] != "":
+					translations[column - 1].add_message(row[0], row[column].c_unescape())
+		result.append_array(translations)
 	return result
