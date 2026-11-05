@@ -2,15 +2,12 @@
 class_name GMornLocalize
 extends Node
 
-## 画面に出す文言の取得口。文言はCSV（`keys,ja,en,…`）にIDのキーで集め、起動時に読んで
-## 列ごとの言語の翻訳として `TranslationServer` へ登録する。
 ## Godot の CSV 取り込みは使わない。生成物の `.translation` が git に入り、マージで表と食い違ったまま残るため。
 ## `@tool` なのは Editor の Preview Translation にも同じ表を効かせるため。
 ## 呼ぶ側は `GMornLocalize.get_text("KEY", [値…])` だけを使う。`tr()` と `TranslationServer.translate()` を
 ## 混ぜると、Node と static 関数で呼び方が割れる。
-## GMorn の他の部品と違い `class_name` を持つ。文言は const の表や static 関数や `--script` で先に読まれる台本からも
-## 引くが、自動読み込みの名前はそこではまだ解決できない。自動読み込みは別名 `GMornLocalizeTable` で同じ台本を指し、
-## 表の登録だけを受け持つ（名前が同じだと class_name と自動読み込みがぶつかる）。
+## const・static・`--script` からも引けるよう `class_name` を使う。
+## 自動読み込みは名前の衝突を避けて `GMornLocalizeTable` とし、表の登録を受け持つ。
 
 const TABLE_DIR_SETTING := "gmorn_localize/table_dir"
 const TABLE_PATH_SETTING := "gmorn_localize/table_path"
