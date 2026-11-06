@@ -91,6 +91,8 @@ func _refresh_translated_nodes() -> void:
 		scene_tree.root.propagate_notification(NOTIFICATION_TRANSLATION_CHANGED)
 
 static func _format(key: String, place: String, value: Variant, spec: String) -> String:
+	if value is String and _is_debug_blank_key(value):
+		return "(blank)"
 	if spec == "money":
 		if not value is int:
 			push_error("%s の %s に整数でない値が来た: %s" % [key, place, value])
