@@ -12,16 +12,27 @@ extends Node
 const TABLE_DIR_SETTING := "gmorn_localize/table_dir"
 const TABLE_PATH_SETTING := "gmorn_localize/table_path"
 const DEFAULT_TABLE_PATH := "res://localization.csv"
+const EVENT_DEMO_TABLE := "EventDemo.csv"
 
 var translations: Array[Translation] = []
+var event_demo_keys: Dictionary = {}
+var debug_blank_missing_event_demo := false
 
 ## 最初の画面より先に登録が済むよう `_ready()` でなく `_init()` で読む。
 func _init() -> void:
 	var directory := String(ProjectSettings.get_setting(TABLE_DIR_SETTING, ""))
 	var tables := read_directory(directory) if directory != "" else read_table(table_path())
+	if not tables.is_empty() and directory != "":
+		event_demo_keys = _read_table_keys(directory.path_join(EVENT_DEMO_TABLE))
 	for translation: Translation in tables:
 		TranslationServer.add_translation(translation)
 		translations.append(translation)
+
+func set_debug_blank_missing_event_demo(enabled: bool) -> void:
+	debug_blank_missing_event_demo = enabled
+
+func should_blank_missing_event_demo(key: String) -> bool:
+	return debug_blank_missing_event_demo and event_demo_keys.has(key)
 
 ## Editor でスクリプトを読み直したとき、古い表を残して二重に登録しない。
 func _notification(what: int) -> void:
@@ -36,6 +47,8 @@ func _notification(what: int) -> void:
 ## 書式の無い `{1}` に float は渡さない。桁が値で揺れるので、表に `.N` を書く。
 static func get_text(key: String, args: Array = []) -> String:
 	var text := String(TranslationServer.translate(key))
+	if text == key and _should_blank_missing_event_demo(key):
+		text = "(blank)"
 	if args.is_empty():
 		return text
 	var matches := RegEx.create_from_string("\\{(\\d+)(?::([^}]+))?\\}").search_all(text)
@@ -47,6 +60,14 @@ static func get_text(key: String, args: Array = []) -> String:
 			continue
 		text = text.substr(0, found.get_start()) + _format(key, found.get_string(0), args[index], found.get_string(2)) + text.substr(found.get_end())
 	return text
+
+static func _should_blank_missing_event_demo(key: String) -> bool:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var tree: SceneTree = main_loop as SceneTree
+	if tree == null:
+		return false
+	var localizer: Node = tree.root.get_node_or_null("GMornLocalizeTable")
+	return localizer != null and bool(localizer.call("should_blank_missing_event_demo", key))
 
 static func _format(key: String, place: String, value: Variant, spec: String) -> String:
 	if spec == "money":
@@ -95,6 +116,23 @@ static func read_directory(path: String) -> Array[Translation]:
 		push_error("文言の表がない: %s" % path)
 		return []
 	return _read_tables(paths)
+
+static func _read_table_keys(path: String) -> Dictionary:
+	var result: Dictionary = {}
+	var csv := FileAccess.open(path, FileAccess.READ)
+	if csv == null:
+		return result
+	var header := csv.get_csv_line()
+	if header.is_empty() or header[0] != "keys":
+		return result
+	while not csv.eof_reached():
+		var row := csv.get_csv_line()
+		if row.size() == 1 and row[0].is_empty():
+			continue
+		if row.is_empty() or row[0].is_empty():
+			return {}
+		result[String(row[0])] = true
+	return result
 
 static func _read_tables(paths: PackedStringArray) -> Array[Translation]:
 	var result: Array[Translation] = []
