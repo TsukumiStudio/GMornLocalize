@@ -14,18 +14,42 @@ const TABLE_PATH_SETTING := "gmorn_localize/table_path"
 const DEFAULT_TABLE_PATH := "res://localization.csv"
 
 var translations: Array[Translation] = []
+var table_keys: Dictionary = {}
+var debug_blank_translation: Translation
+var debug_blank_keys: Dictionary = {}
 
 ## 最初の画面より先に登録が済むよう `_ready()` でなく `_init()` で読む。
 func _init() -> void:
 	var directory := String(ProjectSettings.get_setting(TABLE_DIR_SETTING, ""))
 	var tables := read_directory(directory) if directory != "" else read_table(table_path())
+	table_keys = _read_directory_keys(directory) if directory != "" else _read_table_keys(table_path())
 	for translation: Translation in tables:
 		TranslationServer.add_translation(translation)
 		translations.append(translation)
 
+func set_debug_blank_missing_translations(enabled: bool) -> void:
+	if debug_blank_translation != null:
+		TranslationServer.remove_translation(debug_blank_translation)
+		debug_blank_translation = null
+	debug_blank_keys.clear()
+	if enabled:
+		var blank_translation := Translation.new()
+		blank_translation.locale = TranslationServer.get_locale()
+		for key: String in table_keys:
+			if String(TranslationServer.translate(key)) != key:
+				continue
+			blank_translation.add_message(key, "(blank)")
+			debug_blank_keys[key] = true
+		if not debug_blank_keys.is_empty():
+			TranslationServer.add_translation(blank_translation)
+			debug_blank_translation = blank_translation
+	_refresh_translated_nodes()
+
 ## Editor でスクリプトを読み直したとき、古い表を残して二重に登録しない。
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
+		if debug_blank_translation != null:
+			TranslationServer.remove_translation(debug_blank_translation)
 		for translation: Translation in translations:
 			TranslationServer.remove_translation(translation)
 
@@ -35,6 +59,8 @@ func _notification(what: int) -> void:
 ## - `{1:.2}` 数を小数2桁にする（1.25）。`{1:.0}` は整数に丸める
 ## 書式の無い `{1}` に float は渡さない。桁が値で揺れるので、表に `.N` を書く。
 static func get_text(key: String, args: Array = []) -> String:
+	if _is_debug_blank_key(key):
+		return key
 	var text := String(TranslationServer.translate(key))
 	if args.is_empty():
 		return text
@@ -48,7 +74,25 @@ static func get_text(key: String, args: Array = []) -> String:
 		text = text.substr(0, found.get_start()) + _format(key, found.get_string(0), args[index], found.get_string(2)) + text.substr(found.get_end())
 	return text
 
+static func _is_debug_blank_key(key: String) -> bool:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var tree: SceneTree = main_loop as SceneTree
+	if tree == null:
+		return false
+	var localizer: Node = tree.root.get_node_or_null("GMornLocalizeTable")
+	return localizer != null and bool(localizer.call("is_debug_blank_key", key))
+
+func is_debug_blank_key(key: String) -> bool:
+	return debug_blank_keys.has(key)
+
+func _refresh_translated_nodes() -> void:
+	var scene_tree: SceneTree = get_tree()
+	if scene_tree != null:
+		scene_tree.root.propagate_notification(NOTIFICATION_TRANSLATION_CHANGED)
+
 static func _format(key: String, place: String, value: Variant, spec: String) -> String:
+	if value is String and _is_debug_blank_key(value):
+		return "(blank)"
 	if spec == "money":
 		if not value is int:
 			push_error("%s の %s に整数でない値が来た: %s" % [key, place, value])
@@ -95,6 +139,33 @@ static func read_directory(path: String) -> Array[Translation]:
 		push_error("文言の表がない: %s" % path)
 		return []
 	return _read_tables(paths)
+
+static func _read_table_keys(path: String) -> Dictionary:
+	var result: Dictionary = {}
+	var csv := FileAccess.open(path, FileAccess.READ)
+	if csv == null:
+		return result
+	var header := csv.get_csv_line()
+	if header.is_empty() or header[0] != "keys":
+		return result
+	while not csv.eof_reached():
+		var row := csv.get_csv_line()
+		if row.size() == 1 and row[0].is_empty():
+			continue
+		if row.is_empty() or row[0].is_empty():
+			return {}
+		result[String(row[0])] = true
+	return result
+
+static func _read_directory_keys(path: String) -> Dictionary:
+	var result: Dictionary = {}
+	var directory := DirAccess.open(path)
+	if directory == null:
+		return result
+	for file_name: String in directory.get_files():
+		if file_name.ends_with(".csv"):
+			result.merge(_read_table_keys(path.path_join(file_name)))
+	return result
 
 static func _read_tables(paths: PackedStringArray) -> Array[Translation]:
 	var result: Array[Translation] = []
