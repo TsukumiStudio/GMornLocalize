@@ -53,6 +53,9 @@ func _notification(what: int) -> void:
 		for translation: Translation in translations:
 			TranslationServer.remove_translation(translation)
 
+## 引数付きの呼び出しは HUD などから毎こま来るので、式は1回だけ組む。
+static var _arg_regex := RegEx.create_from_string("\\{(\\d+)(?::([^}]+))?\\}")
+
 ## 表には埋める所を `{1}` `{2}` と番号で書き、`args` に順に渡す。番号なので、訳で語順が変わっても引数は並べ替えない。
 ## 見せ方は表の側に書く。呼ぶ側は生の値を渡す（見せ方は言語ごとに変わりうるので、呼ぶ側に漏らさない）。
 ## - `{1:money}` 整数を3桁区切りにする（777584 → 777,584）
@@ -64,7 +67,7 @@ static func get_text(key: String, args: Array = []) -> String:
 	var text := String(TranslationServer.translate(key))
 	if args.is_empty():
 		return text
-	var matches := RegEx.create_from_string("\\{(\\d+)(?::([^}]+))?\\}").search_all(text)
+	var matches := _arg_regex.search_all(text)
 	# 後ろから置き換えると、前の位置がずれない。
 	matches.reverse()
 	for found: RegExMatch in matches:
